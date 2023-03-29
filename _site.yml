@@ -5,11 +5,11 @@ navbar:
   left:
     - text: "Home"
       href: index.html
-    - text: "Lab 12"
-      href: 12-lab.html
+    - text: "Other"
+      href: alt.html
   right:
     - icon: fa-github fa-lg
-      href: https://dungwoong.github.io/
+      href: https://github.com/dungwoong/JSC370website
     - text: "JSC370 Home(why not)"
       href: https://jsc370.github.io/jsc370-2023/
 output:
