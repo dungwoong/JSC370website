@@ -1,0 +1,610 @@
+---
+title: "Used Car Data Analysis"
+author: "Kevin"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning=FALSE,
+                      message=FALSE)
+```
+
+```{r, echo=F, results='hide'}
+brands <- read.csv('data/brands.csv')
+df <- read.csv('data/kijiji_data_fullset.csv')
+```
+
+```{r, warning=F, message=F, echo=F, results='hide'}
+library(dplyr)
+library(ggplot2)
+library(plotly)
+```
+
+```{r, echo=F, results='hide'}
+# The dataframe seems to have many duplicates(multiple listings, problem with scraping?)
+df <- distinct(df)
+nrow(df)
+```
+
+```{r, echo=F, results='hide'}
+# join data with motortrend market prices
+merged <- right_join(x=brands, y=df, 
+by=c('brand', 'model', 'model_year'))
+head(merged)
+nrow(merged)
+```
+
+```{r, echo=F, results='hide'}
+# take important columns
+merged <- merged %>% select(brand, model, model_year, Market.Price, list_price, condition, body_type, wheel_config, transmission, mileage)
+```
+
+
+```{r, echo=F, results='hide'}
+# remove $ and , from market price strings
+library(stringr)
+merged$Market.Price <- str_remove_all(merged$Market.Price, "[$,]")
+```
+
+```{r, warning=F, echo=F, results='hide'}
+# N.A. values in Market Price indicate the site returned N.A, aka market price is unknown.
+# cast all market prices to numeric, cast other values to NA
+merged$Market.Price <- as.numeric(merged$Market.Price)
+```
+
+```{r, echo=F, results='hide'}
+# I'm 99% sure the market prices are in USD, when comparing to other sites like AutoTrader.net etc. so I will add a CAD market price column
+conversion_rate <- 1
+merged$Market.Price.CAD <- merged$Market.Price * conversion_rate
+```
+
+```{r, echo=F, results='hide'}
+# I think I will remove entries where listing price is 0. This is usually done on sites to show up first when customers sort by price, or sometimes price isn't listed. Either way, these people definitely aren't selling for free.
+merged <- merged %>% filter(list_price != 0)
+```
+
+```{r, echo=F, results='hide'}
+# we have to remove rows with missing market values.
+# we can't impute the data in any way because it's 2023 estimates, and market values should vary by year.
+merged <- merged %>% filter(!is.na(Market.Price.CAD))
+nrow(merged)
+```
+```{r, echo=F, results='hide'}
+# further checks
+
+# no more NA values
+colSums(is.na(merged))
+
+# summary check
+summary(merged)
+```
+
+```{r, echo=F, results='hide'}
+# we need to map 4x4 to AWD and '' to Other for
+# wheel_config
+
+merged = merged %>% mutate(wheel_config=case_when(
+  wheel_config == '' ~ 'Other',
+  wheel_config == 'Other' ~ 'Other',
+  wheel_config == 'Front-wheel drive (FWD)' ~ 'FWD',
+  wheel_config == 'Rear-wheel drive (RWD)' ~ 'RWD',
+  wheel_config == '4 x 4' ~ '4x4',
+  TRUE ~ 'AWD'
+))
+# merged$wheel_config = ifelse(merged$wheel_config == '', 'Other', merged$wheel_config)
+```
+
+```{r, echo=F, results='hide'}
+# same idea for transmission.
+merged$transmission = ifelse(merged$transmission == '', 'Other', merged$transmission)
+```
+
+```{r, echo=F, results='hide', message=F}
+# create the price quantiles for every year, to make a new price_range variable.
+yearly_price_quantiles <- merged %>% group_by(model_year) %>% 
+  summarise(yearly_first_q = quantile(Market.Price.CAD, probs=0.25),
+            yearly_third_q = quantile(Market.Price.CAD, probs=0.75))
+
+merged = inner_join(x=merged, y=yearly_price_quantiles)
+
+merged = merged %>% mutate(price_range = case_when(
+  Market.Price.CAD < yearly_first_q ~ 'low',
+  Market.Price.CAD < yearly_third_q ~ 'medium',
+  TRUE ~ 'high'
+))
+```
+
+```{r, echo=F, results='hide'}
+# select vars relevant to the investigation
+merged <- merged %>% select(brand, 
+                            model, 
+                            model_year, 
+                            list_price, 
+                            mileage,
+                            body_type, 
+                            wheel_config, 
+                            Market.Price.CAD, 
+                            price_range)
+```
+
+To get a better understanding of the project, please go to the "Home" tab for a general explanation. Note that tabbed plots have individual explanations for each plot, so the user must click into each tab for its respective interpretation.
+
+# Introduction
+
+The variables used in this analysis are:
+
+Variable | Description
+---------|------------
+Brand | eg. Honda, Audi, etc.
+Model | eg. Civic, R8, etc.
+Model year | eg. 2001
+Listing price | Price on Kijiji, listed by seller(CAD)
+Market price | A "fair" asking price for a good-condition vehicle, from MotorTrend.com(CAD)
+Mileage | Miles
+Body Type | eg. Convertible, Sedan, Trucks, etc.
+Wheel Configuration | eg. AWD, FWD, etc.
+Price Range | Low, medium, high. Explained below.
+
+I separated the observations into three price ranges, based on their market price and year. A "low" price range car is below the 25th quantile for price among models in the car's year. A "medium" price range car is between the 25th and 75th quantile, and a "high" price range car is above the 75th quantile. This was meant to hopefully classify vehicles into normal and luxury vehicles, allowing us to generate better insights.
+
+<br><br>
+
+# Data Preview
+
+```{r}
+library(DT)
+colnames = c("Brand", "Model", "Year", "Listing Price", "Mileage", "Body Type", "Wheel Configuration", "MotorTrend Market Price(CAD)", "Approx. Price Range")
+datatable(merged, filter="top", options=list(pageLength=10, autoWidth=T),
+          colnames=colnames)
+```
+
+# Market price visualizations
+
+A problem with this dataset is that the listing data was scraped in 2019, and the market price data was scraped in 2023. Due to time constraints on the projects, this listing data is meant to stand in for real-time data.
+
+However, this implies the market price for the cars is most likely lower than it was in 2019. However, most online sources state that cars typically depreciate exponentially in price. Thus, we have reason to believe that most of the listings differ from their market prices by a constant factor, and can thus proceed with analysis.
+
+## Market Price visualizations {.tabset}
+
+Here, we can check our assumptions about market price, and also gain some insight about the approximate change in car prices between 2019 and 2023.
+
+Overall, these plots suggest that car market prices decay exponentially by year(at a rate proportional to their original price), and most cars have similar decay rates. This suggests that vehicles are not a good long-term investment, and that buyers should typically consider cheaper cars if they want to buy a vehicle for everyday use. Also, this suggests that buyers could find older models of luxury vehicles for relatively cheap prices.
+
+### Market price vs Listing price
+
+```{r, results='hide', cache=T}
+library(MASS)
+lms <- lmsreg(list_price ~ Market.Price.CAD, nsamp="exact", data=merged)
+lms$coef
+```
+
+```{r}
+p <- ggplot(merged, aes(x=Market.Price.CAD, y=list_price)) +
+  geom_point(size=0.4, aes(color=price_range, text=paste(
+  model_year, brand, model, "(", body_type, ")",
+  "<br>Market price (CAD):", Market.Price.CAD,
+  "<br>List price(CAD):", list_price
+))) +
+  geom_abline(intercept=lms$coef[1], slope=lms$coef[2]) + 
+  labs(title="",
+           x="MotorTrend market price(CAD)",
+           y="Listing price(CAD)",
+       color="Price range") +
+  scale_x_continuous(labels=scales::comma)
+
+ggplotly(p, tooltip="text")
+
+```
+
+I fitted a line using least median squares regression, and got the equation
+
+Listing price(2019) = `r round(lms$coef[1], 2)` + `r round(lms$coef[2], 2)` * Market price(2023)
+
+The model suggests that the listing price of a given car in 2019 is around 1.8 times the estimated market price in 2023, minus around 2600 dollars. In other words, the model suggests perceived value of most used cars has almost halved since 2019, given the newer models that are being developed and the simple passing of time.
+
+The cone shape of the plot suggests the variance in listing prices is associated with the market price of a car, which makes intuitive sense. It is common knowledge that factors affecting price such as depreciation and damage are all scaled to some base price of a new, accident-free vehicle(eg. an expensive vehicle would have expensive repairs, and the value would decay proportional to the original price). 
+
+However, does this proportion change for cars of different approximate price ranges?
+
+### Log Scale Market vs Listing Price
+
+```{r}
+tmp <- merged %>% mutate(logmp = log(Market.Price.CAD),
+                         loglp = log(list_price))
+
+p <- ggplot(tmp, aes(x=logmp, y=loglp)) +
+  geom_point(size=0.4, aes(color=price_range, text=paste(
+  model_year, brand, model, "(", body_type, ")",
+  "<br>Market price (CAD):", Market.Price.CAD,
+  "<br>List price(CAD):", list_price
+))) +
+  geom_smooth(method=lm, se=F, linewidth=0.2) + 
+  labs(title="",
+           x="Logged MotorTrend market price(CAD)",
+           y="Logged listing price(CAD)",
+       color="Price range")
+
+ggplotly(p, tooltip="text")
+
+```
+
+On the log scale, we see relatively constant variance. This suggests that the ratio of listing price to market price is somewhat constant across cars of all price ranges.
+
+We have established a fact that price changes in listings seem proportional to a car's initial price, which is correlated with its estimated market price. Further factors must be considered if we want to explain remaining variance in the listing prices.
+
+### Market price by model year
+
+```{r}
+tmp <- merged
+
+p <- tmp %>% ggplot(aes(x=model_year, 
+                        y=list_price, 
+                        color=price_range)) +
+  geom_point(size=0.4, aes(text=paste(
+  model_year, brand, model, "(", body_type, ")",
+  "<br>Market price (CAD):", Market.Price.CAD,
+  "<br>List price(CAD):", list_price
+))) +
+  geom_smooth(method=lm, formula=y~poly(x, 2, raw=T), se=F, linewidth=0.2) +
+  labs(title="",
+       x="Model Year",
+       y="Market Price(CAD)",
+       color="Price range")
+
+ggplotly(p, tooltip="text")
+```
+
+(Remember, price range is separated by market price quantiles)
+
+The graph supports the idea that prices decrease at an exponential rate over time, with newer car models having significantly higher listing prices. We see that the variance in prices is higher in recent years compared to older models, and the spread of the points are wider for cars in higher price ranges. This further supports the idea that price variance depends on the original price range of the car, and that in general, all cars lose value proportional to their original price over time.
+
+## Market price by year and brand {.tabset}
+
+The following plots allow us to visualize and compare the changes in price for different brands of cars over time, and inspect the data points individually to understand their respective trends better. I chose to plot the market price variable as it is not influenced by individual perceptions of value, as listing price may be. I also chose to plot market price on the log scales and fit linear lines to model the exponential nature of the price decay.
+
+Overall, these plots suggest that there isn't a significant difference in depreciation between different brands of cars. However, since within each brand we have observations for different models, the results are heavily affected by outliers and a lack of data points, and further investigation is necessary to confirm these findings.
+
+Depreciation rate definitely differs between vehicles and is an important consideration when making a purchase, but these plots suggest that it does not differ too much between brands, and consumers should feel free to choose brands that they enjoy.
+
+### Coupe, Sedans, Convertibles, etc.
+
+```{r}
+library(plotly)
+library(ggplot2)
+
+tmp <- merged %>% 
+  filter(body_type %in% c("Coupe (2 door)", "Sedan", "Convertible", "Wagon", "Hatchback"))
+
+p <- tmp %>% ggplot(aes(x=model_year, 
+                        y=list_price, 
+                        color=brand)) +
+  geom_point(size=0.4, aes(text=paste(
+  model_year, brand, model, "(", body_type, ")",
+  "<br>Market price (CAD):", Market.Price.CAD,
+  "<br>List price(CAD):", list_price
+))) +
+  geom_smooth(method=lm, formula=y~poly(x, 1, raw=T), se=F, linewidth=0.2) +
+  labs(title="",
+       x="Model Year",
+       y="Logged Market Price(CAD)",
+       color="Brand") +
+  scale_y_log10(labels=scales::comma)
+
+ggplotly(p, tooltip="text")
+```
+
+Compared to the other visualization, this visualization for the market prices of different smaller vehicles(eg. sedans, hatchbacks) has a lot of outliers, such as luxury vehicles and everyday vehicles from the same brand, that influence the fitted lines. However, we see that most lines have similar slopes, suggesting similar decay rates.
+
+```{r}
+
+glok <- merged %>% 
+  filter(body_type %in% c("Coupe (2 door)", "Sedan", "Convertible", "Wagon", "Hatchback"))
+
+decay_rate <- NULL
+brands = unique(glok$brand)
+for (b in brands) {
+  tmp = glok %>% filter(brand==b)
+  l = lm(log(Market.Price.CAD) ~ model_year, data=tmp)
+  decay_rate = c(decay_rate, l$coef[2])
+}
+
+decay_by_brand = data.frame(brand=brands, exp_slope=decay_rate) %>% filter(!is.na(exp_slope))
+datatable(decay_by_brand, options=list(pageLength=10, autoWidth=T),
+          colnames=c("Brand", "Slope of fitted line(log Market Price vs Year)"))
+```
+
+### Trucks, Vans etc. 
+
+```{r, echo=F}
+
+tmp <- merged %>% 
+  filter(body_type %in% c("Pickup Truck", "SUV, Crossover", "Minivan, Van"))
+
+
+p <- tmp %>% ggplot(aes(x=model_year, 
+                        y=list_price, 
+                        color=brand)) +
+  geom_point(size=0.4, aes(text=paste(
+  model_year, brand, model, "(", body_type, ")",
+  "<br>Market price (CAD):", Market.Price.CAD,
+  "<br>List price(CAD):", list_price
+))) +
+  geom_smooth(method=lm, formula=y~poly(x, 1, raw=T), se=F, linewidth=0.2) +
+  labs(title="",
+       x="Model Year",
+       y="Logged Market Price(CAD)",
+       color="Brand") +
+  scale_y_log10(labels=scales::comma)
+
+ggplotly(p, tooltip="text")
+  
+# plot_ly(
+#   tmp,
+#   x = ~model_year,
+#   y = ~Market.Price.CAD,
+#   color = ~brand,
+#   # size = ~population,
+#   type = "scatter",
+#   # sizes = c(5, 50),
+#   # marker = list(
+#   #   sizemode="diameter", 
+#   #   opacity=".8"
+#   #   ), # whigntchbladews
+#   hoverinfo = "text",
+#     text = ~paste(
+#   model_year, brand, model, "(", body_type, ")",
+#   "<br>Market price (CAD):", Market.Price.CAD,
+#   "<br>List price(CAD):", list_price
+# )
+# ) %>% add_lines(line = list(shape = 'spline', smoothing = 1.3)) %>% 
+#   layout(yaxis = list(range = c(0, 100000)))
+```
+
+The plot for larger vehicles, such as trucks and vans, seems to have a lot less noise, as most lines are almost parallel. This may be because there is a lot more variation among smaller vehicles(eg. sports cars, luxury vehicles) compared to vans and trucks. The parallel lines in this plot suggest that price decay rates are similar among trucks, for different brands of cars.
+
+```{r}
+
+glok <- merged %>% 
+  filter(body_type %in% c("Pickup Truck", "SUV, Crossover", "Minivan, Van"))
+
+decay_rate <- NULL
+brands = unique(glok$brand)
+for (b in brands) {
+  tmp = glok %>% filter(brand==b)
+  l = lm(log(Market.Price.CAD) ~ model_year, data=tmp)
+  decay_rate = c(decay_rate, l$coef[2])
+}
+
+decay_by_brand = data.frame(brand=brands, exp_slope=decay_rate) %>% filter(!is.na(exp_slope))
+datatable(decay_by_brand, options=list(pageLength=10, autoWidth=T),
+          colnames=c("Brand", "Slope of fitted line(log Market Price vs Year)"))
+```
+
+### Other
+
+```{r, echo=F}
+
+tmp <- merged %>% 
+  filter(body_type %in% c("Other")) 
+
+p <- tmp %>% ggplot(aes(x=model_year, 
+                        y=list_price, 
+                        color=brand)) +
+  geom_point(size=0.4, aes(text=paste(
+  model_year, brand, model, "(", body_type, ")",
+  "<br>Market price (CAD):", Market.Price.CAD,
+  "<br>List price(CAD):", list_price
+))) +
+  geom_smooth(method=lm, formula=y~poly(x, 2, raw=T), se=F, linewidth=0.2) +
+  labs(title="",
+       x="Model Year",
+       y="Market Price(CAD)",
+       color="Brand")
+
+ggplotly(p, tooltip="text")
+```
+
+This plot does not really give any results, it just allows us to view the cars that were classified as "Other." We see that most vehicles may have been misclassified, while some vehicles were correctly classified, such as a Chevrolet Express, which is a van used mostly by organizations for moving large amounts of passengers/equipment.
+
+## Comparing other car factors {.tabset}
+
+When considering a car purchase, knowing approximately what is available within a certain price range is important. Analyzing the price distributions of cars with different body types and wheel configurations can help us understand what cars are available at different budget points, a useful consideration when a specific function is required(eg. a truck for transporting equipment, or an all wheel drive vehicle for snowy weather).
+
+<!-- ```{r} -->
+<!-- top_brands <- c("Ford", "Chevrolet",  -->
+<!--                 "Dodge",  -->
+<!--                 "BMW",  -->
+<!--                 "Ram",  -->
+<!--                 "Jeep",  -->
+<!--                 "Nissan",  -->
+<!--                 "Honda",  -->
+<!--                 "Volkswagen",  -->
+<!--                 "Mercedes-Benz", -->
+<!--                 "Toyota") -->
+
+<!-- tmp <- merged %>%  -->
+<!--   mutate(depreciation = list_price / Market.Price.CAD) -->
+<!--   # filter(brand %in% top_brands) -->
+
+<!-- p <- tmp %>% ggplot(aes(x=mileage, y=list_price, color=brand)) + -->
+<!--   geom_point(size=0.4, aes(text=paste( -->
+<!--   model_year, brand, model, "(", body_type, ")", -->
+<!--   "<br>Market price (CAD):", Market.Price.CAD, -->
+<!--   "<br>List price(CAD):", list_price -->
+<!-- ))) + -->
+<!--   geom_smooth(method=lm, formula=y~poly(x, 1, raw=T), se=F, linewidth=0.2) + -->
+<!--   scale_x_continuous(labels=scales::comma) + -->
+<!--   scale_y_log10() + -->
+<!--   labs(title="", -->
+<!--        x="Mileage", -->
+<!--        y="Price ratio(Listing / Market)") -->
+
+<!-- ggplotly(p, tooltip="text") -->
+<!-- ``` -->
+
+<!-- ### By type of car -->
+
+<!-- ```{r} -->
+<!-- tmp <- merged %>%  -->
+<!--   mutate(depreciation = list_price / Market.Price.CAD) -->
+<!--   # filter(brand %in% top_brands) -->
+
+<!-- p <- tmp %>% ggplot(aes(x=mileage, y=depreciation, color=body_type)) + -->
+<!--   geom_point(size=0.4, aes(text=paste( -->
+<!--   model_year, brand, model, "(", body_type, ")", -->
+<!--   "<br>Market price (CAD):", Market.Price.CAD, -->
+<!--   "<br>List price(CAD):", list_price -->
+<!-- ))) + -->
+<!--   geom_smooth(method=lm, formula=y~poly(x, 1, raw=T), se=F, linewidth=0.2) + -->
+<!--   scale_x_continuous(labels=scales::comma) + -->
+<!--   labs(title="", -->
+<!--        x="Mileage", -->
+<!--        y="Price ratio(Listing / Market)") -->
+
+<!-- ggplotly(p, tooltip="text") -->
+<!-- ``` -->
+
+<!-- Try toyota honda etc vs audi bmw u see vertical translation, assuming market price is decent est of list price means market price has decreased a lot recently. -->
+
+### Listing price vs body type
+
+```{r}
+p <- merged %>% ggplot(aes(y=list_price, x=body_type)) +
+  geom_boxplot(aes(text=paste(
+  model_year, brand, model, "(", body_type, ")",
+  "<br>Market price (CAD):", Market.Price.CAD,
+  "<br>List price(CAD):", list_price
+))) +
+  labs(title="",
+       y="Listing price(CAD)",
+       x="Body Type") +
+  theme_minimal()
+
+ggplotly(p, tooltip="text")
+
+```
+
+We see that cars with different body types have varying listing price distributions. This makes intuitive sense, as larger vehicles will probably have higher prices compared to smaller cars. We see that pickup trucks, convertibles, and coupes have the highest price.
+
+Overall, this suggests that body type may associated with pricing, and may be a good indicator for predicting car price.
+
+### By wheel configuration
+
+### By body type
+
+```{r}
+p <- merged %>% ggplot(aes(y=list_price, x=wheel_config)) +
+  geom_boxplot(aes(text=paste(
+  model_year, brand, model, "(", body_type, ")",
+  "<br>Market price (CAD):", Market.Price.CAD,
+  "<br>List price(CAD):", list_price
+))) +
+  theme_minimal() +
+  labs(y="Listing Price(CAD)",
+       x="Wheel configuration",
+       title="")
+
+ggplotly(p, tooltip="text")
+
+```
+
+In addition to body type, wheel configuration also seems to be associated with price. We see 4x4 vehicles have the highest median price.
+
+## Comparing market price decay with miscellaneous factors {.tabset}
+
+Our results suggest that cars that provide utility, such as trucks, may observe lower decay rates compared to other, more "generic" vehicles. In addition, luxury vehicles and sports cars, which are often rear wheel drive, may observe lower decay rates due to the social status associated with the vehicle.
+
+However, price decay is still quite similar between different vehicle classes, and the data has a lot of noise. 
+
+### Logged market price vs year, wheel configuration
+
+```{r}
+p <- merged %>% ggplot(aes(x=model_year, 
+                        y=list_price, 
+                        color=wheel_config)) +
+  geom_point(size=0.4, aes(text=paste(
+  model_year, brand, model, "(", body_type, ")",
+  "<br>Market price (CAD):", Market.Price.CAD,
+  "<br>List price(CAD):", list_price
+))) +
+  geom_smooth(method=lm, formula=y~poly(x, 1, raw=T), se=F, linewidth=0.2) +
+  labs(title="",
+       x="Model Year",
+       y="Logged Market Price(CAD)",
+       color="Wheel Configuration") +
+  scale_y_log10(labels=scales::comma)
+
+ggplotly(p, tooltip="text")
+
+```
+
+Here, the slope of the line indicates the approximate rate of exponential decay in price. We see that 4x4 and RWD vehicles have a lower slope compared to AWD and FWD vehicles, suggesting they have lower decay rates.
+
+This may be because most 4x4 vehicles are trucks, that provide a lot of utility, and thus have a lower price decay rate. In addition, many rear wheel drive vehicles are sports cars and other luxury vehicles, and these may observe a lower decay rate due to the status associated with the vehicles.
+
+### Numerical statistics
+
+```{r}
+p <- merged %>% ggplot(aes(x=model_year, 
+                        y=list_price, 
+                        color=body_type)) +
+  geom_point(size=0.4, aes(text=paste(
+  model_year, brand, model, "(", body_type, ")",
+  "<br>Market price (CAD):", Market.Price.CAD,
+  "<br>List price(CAD):", list_price
+))) +
+  geom_smooth(method=lm, formula=y~poly(x, 1, raw=T), se=F, linewidth=0.2) +
+  labs(title="",
+       x="Model Year",
+       y="Logged Market Price(CAD)",
+       color="Body Type") +
+  scale_y_log10(labels=scales::comma)
+
+# ggplotly(p, tooltip="text")
+
+```
+
+Due to the noise in the other observations, I decided to use least median squares regression to quantify my findings, as it is less sensitive to outliers.
+
+Note that this fits a line $Y = exp(\beta_0 + \beta_1 X)$, where $Y$ is the listing price of a car and $X$ is the year. Note that a higher slope($\beta_1$) value suggests a higher decay rate, projecting a higher increase in price associated with increasing years.
+
+```{r}
+library(MASS)
+btypes <- unique(merged$wheel_config)
+cofs <- NULL
+
+for (b in btypes) {
+  tmp <- merged %>% filter(wheel_config == b)
+  lms <- lmsreg(log(list_price) ~ model_year, nsamp="exact", data=tmp)
+  cofs <- c(cofs, lms$coefficients[2])
+}
+
+btype_df = data.frame(btype=btypes, cofs=cofs) %>% arrange(cofs)
+datatable(btype_df, options=list(pageLength=10, autoWidth=T),
+          colnames=c("Wheel configuration", "Exponential slope estimate"))
+```
+
+Here, we confirm our previous findings that rear-wheel-drive and 4x4 vehicles have the lowest slope estimate and thus the lowest decay rate.
+
+```{r}
+btypes <- unique(merged$body_type)
+cofs <- NULL
+
+for (b in btypes) {
+  tmp <- merged %>% filter(body_type == b)
+  lms <- lmsreg(log(list_price) ~ model_year, nsamp="exact", data=tmp)
+  cofs <- c(cofs, lms$coefficients[2])
+}
+
+btype_df = data.frame(btype=btypes, cofs=cofs) %>% arrange(cofs)
+datatable(btype_df, options=list(pageLength=10, autoWidth=T),
+          colnames=c("Body Type", "Exponential slope estimate"))
+```
+
+Here we see that Coupes and pickup trucks have the lowest slope estimate, which supports our previous conclusion. However, Coupe has a negative coefficient which may be the result of outliers in the data, and we see that convertibles actually have the highest slope estimate.
+
+Overall, there is some evidence in support of our analysis in this section, but the size and noise in the dataset makes it difficult to draw any definitive conclusions.

@@ -1,174 +1,44 @@
 ---
-title: "JSC370 Final Project"
-author: "Kevin"
+title: "Used Car Data Analysis - JSC370 Final Project"
+author: "Kevin W"
 output: 
     html_document:
         toc: TRUE
         toc_float: TRUE
 ---
 
-This is my JSC370 Final Project website.
+# Problem Description
 
-<!-- fontawesome v5 is useful -->
-```{r, echo=F, include=F}
-knitr::opts_chunk$set(
-  echo=F,
-  message=F,
-  warning=F,
-  cache=T
-)
-```
+Transportation is the life-blood of civilization. For many people, the two largest purchases in their lives will be a house and a car. However, not all cars are built equally and, from personal experience, many car salesmen will not eagerly disclose these inequalities. Thus, I will be investigating the used car market for my project, thinking from the perspective of a prospective buyer and from a used car dealership.
 
-```{r, echo=F, results="hide", warning=F, message=F}
+It's common knowledge that car prices depreciate at an exponential rate, and new cars begin to lose value the moment they are driven off of the lot. My analysis focuses on understanding factors that affect the decay, as well as factors that affect price in general. 
 
-library(tidyverse)
+**How do factors such as year, mileage, wheel configuration, and body type influence the price of used cars?**
 
-## data extracted from New York Times state-level data from NYT Github repository
-# https://github.com/nytimes/covid-19-data
+In particular, I want to find actionable insights that can benefit people who are considering purchasing a vehicle, whether they want to save money, want to find a vehicle with a low depreciation rate, or to understand what is within their budget, given a set of desired properties.
 
-## state-level population information from us_census_data available on GitHub repository:
-# https://github.com/COVID19Tracking/associated-data/tree/master/us_census_data
+# Data description
 
-# load COVID state-level data from NYT
-### FINISH THE CODE HERE ###
-cv_states_readin <- as.data.frame(data.table::fread("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv") )
+I used a car listings dataset was sourced from [this github page](https://github.com/Pyligent/Car_ETL_PROJECT), and contains information for around 1000 unique Kijiji listings in the Greater Toronto Area. The data was acquired in 2019 through web scraping.
 
-# load state population data
-### FINISH THE CODE HERE ###
-state_pops_readin <- as.data.frame(data.table::fread("https://raw.githubusercontent.com/COVID19Tracking/associated-data/master/us_census_data/us_census_2018_population_estimates_states.csv"))
+Using the `brand`, `model` and `model year` attributes from the car listings dataset, I attempted to scrape the market price for each car from [MotorTrend.com](motortrend.com), to augment the data. MotorTrend.com gives a "clean retail price" or "market price" for many cars, representing a "reasonable asking price" for cars with clean history, and no defects/damage.
 
-state_pops <- state_pops_readin
-state_pops$abb <- state_pops$state
-state_pops$state <- state_pops$state_name
-state_pops$state_name <- NULL
+Note that the market price was obtained in 2023, and may be lower than the listing prices obtained in 2019 due to depreciation. However, with prior knowledge that the depreciation rate should be fixed for different categories of cars and can be adjusted for, I believe relationships between these variables are still worth investigating.
 
-### FINISH THE CODE HERE ###
-cv_states <- merge( cv_states_readin, state_pops, by="state")
+# Data cleaning summary
 
-# format the date
-cv_states$date <- as.Date(cv_states$date, format="%Y-%m-%d")
+I removed columns that I'm not investigating, such as links and vehicle identification numbers, and converted the remaining columns to the correct data types. Cross-referencing with other sites, I believe MotorTrend market prices are given in CAD, so I did not perform any currency conversion.
 
-# format the state variable
-state_list <- unique(cv_states$state)
-cv_states$state <- factor(cv_states$state, levels = state_list)
+I then removed listings with a listing price of 0. Kijiji sellers will often list a price of 0 or 'Please Contact' to attract buyers, which does not reflect the actual asking price.
 
-# format the state abbreviation (abb) variable
-### FINISH THE CODE HERE ###
-abb_list = unique(cv_states$abb)
-cv_states$abb = factor(cv_states$abb, levels = abb_list)
+Since market prices are scraped in 2023 and the dataset is from 2019, there is no reasonable way to impute the missing values in that column. Market price is an important variable in this investigation, so I decided to remove all rows with missing market prices.
 
-# order the data first by state, second by date
-cv_states = cv_states[order(cv_states$state, cv_states$date),]
+I also created a new `price range` variable that indicates if the market price of a car which had a market price below the 25th percentile, between the 25-75th percentile or above the 75th percentile, comparing to other recorded listings **in the same year**. This variable is intended to roughly indicate whether a vehicle is a "luxury vehicle" or not, and takes the values 'low,' 'medium,' and 'high.'
 
-# Add variables for new_cases and new_deaths:
-for (i in 1:length(state_list)) {
-  cv_subset = subset(cv_states, state == state_list[i])
-  cv_subset = cv_subset[order(cv_subset$date),]
-  
-  # add starting level for new cases and deaths
-  cv_subset$new_cases = cv_subset$cases[1]
-  cv_subset$new_deaths = cv_subset$deaths[1]
-  
-  #### FINISH THE CODE HERE ###
-  for (j in 2:nrow(cv_subset)) {
-    cv_subset$new_cases[j] = cv_subset$cases[j] - cv_subset$cases[j-1] 
-    cv_subset$new_deaths[j] = cv_subset$deaths[j] - cv_subset$deaths[j-1]
-  }
-  
-  # include in main dataset
-  cv_states$new_cases[cv_states$state==state_list[i]] = cv_subset$new_cases
-  cv_states$new_deaths[cv_states$state==state_list[i]] = cv_subset$new_deaths
-}
+# Methods and results
 
-# set negative new case or death counts to 0
-cv_states$new_cases[cv_states$new_cases<0] = 0
-cv_states$new_deaths[cv_states$new_deaths<0] = 0
+I performed some data analysis and created some interactive visualizations, available on the `data analysis page`.
 
-# Recalculate `cases` and `deaths` as cumulative sum of updates `new_cases` and `new_deaths`
-for (i in 1:length(state_list)) {
-  cv_subset = subset(cv_states, state == state_list[i])
-  
-  # add starting level for new cases and deaths
-  cv_subset$cases = cv_subset$cases[1]
-  cv_subset$deaths = cv_subset$deaths[1]
-  
-  for (j in 2:nrow(cv_subset)) {
-    cv_subset$cases[j] = cv_subset$new_cases[j] + cv_subset$cases[j-1]
-    cv_subset$deaths[j] = cv_subset$new_deaths[j] + cv_subset$deaths[j-1]
-  }
-  # include in main dataset
-  cv_states$cases[cv_states$state==state_list[i]] = cv_subset$cases
-  cv_states$deaths[cv_states$state==state_list[i]] = cv_subset$deaths
-}
+The visualizations and numerical analysis mostly suggest that most brands of cars decay at a similar exponential rate every year. In addition, we find that prices differ between types of cars and wheel configuration, and that certain types of cars such as trucks and sports cars may experience less price decay than normal cars due to the features they provide the buyer.
 
-# add population normalized (by 100,000) counts for each variable
-cv_states$per100k =  as.numeric(format(round(cv_states$cases/(cv_states$population/100000),1),nsmall=1))
-cv_states$newper100k =  as.numeric(format(round(cv_states$new_cases/(cv_states$population/100000),1),nsmall=1))
-cv_states$deathsper100k =  as.numeric(format(round(cv_states$deaths/(cv_states$population/100000),1),nsmall=1))
-cv_states$newdeathsper100k =  as.numeric(format(round(cv_states$new_deaths/(cv_states$population/100000),1),nsmall=1))
-
-# add a naive_CFR variable = deaths / cases
-cv_states = cv_states %>% mutate(naive_CFR = round((deaths*100/cases),2))
-
-# create a `cv_states_today` variable
-max_date <- max(cv_states$date)
-cv_states_today = cv_states %>% filter(date==as.Date(max_date))
-
-```
-
-```{r, echo=F, warning=F, message=F}
-library(plotly)
-p1_scatter <- cv_states_today %>% 
-  plot_ly(x = ~pop_density, y = ~deathsper100k,
-          type = 'scatter', mode = 'markers', color = ~state,
-          size = ~population, sizes = c(5, 70), marker = list(sizemode='diameter', opacity=0.5),
-          hoverinfo = 'text',
-          text = ~paste( paste(state, ":", sep=""), paste(" Cases per 100k: ", per100k, sep="") , paste(" Deaths per 100k: ",
-                        deathsper100k, sep=""), sep = "<br>")) %>%
-  layout(title = "Population-normalized COVID-19 deaths vs. population density",
-                  yaxis = list(title = "Deaths per 100k"), xaxis = list(title = "Population Density"),
-         hovermode = "compare")
-
-# filter out "District of Columbia"
-cv_states_today_scatter <- cv_states_today %>% filter(state!="District of Columbia")
-
-p2_scatter <- cv_states_today_scatter %>% 
-  plot_ly(x = ~pop_density, y = ~deathsper100k,
-          type = 'scatter', mode = 'markers', color = ~state,
-          size = ~population, sizes = c(5, 70), marker = list(sizemode='diameter', opacity=0.5),
-          hoverinfo = 'text',
-          text = ~paste( paste(state, ":", sep=""), paste(" Cases per 100k: ", per100k, sep="") , paste(" Deaths per 100k: ",
-                        deathsper100k, sep=""), sep = "<br>")) %>%
-  layout(title = "Population-normalized COVID-19 deaths vs. population density",
-                  yaxis = list(title = "Deaths per 100k"), xaxis = list(title = "Population Density"),
-         hovermode = "compare")
-```
-
-## Showcasing plots {.tabset}
-
-### Figure 1
-
-```{r echo=FALSE}
-p1_scatter
-```
-
-### Figure 2
-
-```{r echo=FALSE}
-p2_scatter
-```
-
-
-## test
-
-a
-
-b
-
-c
-
-d
-
-e
-
-## test 2
+I also fit some models that attempt to predict the listing price of a car given other variables. This model is meant to find how much of the variation in listing prices can be explained using the data I collected and state-of-the-art prediction methods, such as random forests and gradient boosting. In reality, we would probably scrape present-day data and fit a new model if we wanted to make accurate predictions.
