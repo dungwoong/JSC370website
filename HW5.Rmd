@@ -1,5 +1,5 @@
 ---
-title: "Used Car Data Analysis"
+title: "Used Car Data Analysis - Methods and Results"
 author: "Kevin"
 output: 
     html_document:

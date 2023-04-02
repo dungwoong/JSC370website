@@ -1,14 +1,12 @@
 name: "my-website"
 output_dir: "."
 navbar:
-  title: "JSC370 Final Project"
+  title: "Used Car Analysis"
   left:
     - text: "Project Overview"
       href: index.html
-    - text: "Data Analysis"
+    - text: "Methods and Results"
       href: HW5.html
-    - text: "Modelling"
-      href: notimplemented.eu
     - text: "LAB 12"
       href: lab12.html  
   right:
