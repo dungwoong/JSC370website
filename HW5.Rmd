@@ -494,8 +494,6 @@ Overall, this suggests that body type may associated with pricing, and may be a 
 
 ### By wheel configuration
 
-### By body type
-
 ```{r}
 p <- merged %>% ggplot(aes(y=list_price, x=wheel_config)) +
   geom_boxplot(aes(text=paste(
