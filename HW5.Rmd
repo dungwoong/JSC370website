@@ -133,6 +133,8 @@ merged <- merged %>% select(brand,
 
 To get a better understanding of the project, please go to the "Home" tab for a general explanation. Note that tabbed plots have individual explanations for each plot, so the user must click into each tab for its respective interpretation.
 
+Note that these visualizations are part of the detailed analysis that can be found in the pdf report. This page only gives a brief overview of the results.
+
 # Introduction
 
 The variables used in this analysis are:
@@ -149,7 +151,7 @@ Body Type | eg. Convertible, Sedan, Trucks, etc.
 Wheel Configuration | eg. AWD, FWD, etc.
 Price Range | Low, medium, high. Explained below.
 
-I separated the observations into three price ranges, based on their market price and year. A "low" price range car is below the 25th quantile for price among models in the car's year. A "medium" price range car is between the 25th and 75th quantile, and a "high" price range car is above the 75th quantile. This was meant to hopefully classify vehicles into normal and luxury vehicles, allowing us to generate better insights.
+I separated the observations into three price ranges, based on their market price and year. A "low" price range car is below the 25th quantile for price among models **in the year the car's model was made**. A "medium" price range car is between the 25th and 75th quantile, and a "high" price range car is above the 75th quantile. This was meant to classify vehicles into normal and luxury vehicles.
 
 <br><br>
 
@@ -164,9 +166,9 @@ datatable(merged, filter="top", options=list(pageLength=10, autoWidth=T),
 
 # Market price visualizations
 
-A problem with this dataset is that the listing data was scraped in 2019, and the market price data was scraped in 2023. Due to time constraints on the projects, this listing data is meant to stand in for real-time data.
+A problem with this dataset is that the listing data was scraped in 2019, and the market price data was scraped in 2023. Due to time constraints on this project, the listing data is meant to stand in for real-time data.
 
-However, this implies the market price for the cars is most likely lower than it was in 2019. However, most online sources state that cars typically depreciate exponentially in price. Thus, we have reason to believe that most of the listings differ from their market prices by a constant factor, and can thus proceed with analysis.
+This implies the market price for the cars has most likely decreased in 2019. However, online sources state that cars typically depreciate exponentially in price. Thus, we have reason to believe that most of the listings differ from their market prices by a constant factor, and can thus proceed with analysis.
 
 ## Market Price visualizations {.tabset}
 
@@ -204,9 +206,9 @@ I fitted a line using least median squares regression, and got the equation
 
 Listing price(2019) = `r round(lms$coef[1], 2)` + `r round(lms$coef[2], 2)` * Market price(2023)
 
-The model suggests that the listing price of a given car in 2019 is around 1.8 times the estimated market price in 2023, minus around 2600 dollars. In other words, the model suggests perceived value of most used cars has almost halved since 2019, given the newer models that are being developed and the simple passing of time.
+The model suggests perceived value of most used cars has almost halved since 2019, given the newer models that are being developed and the simple passing of time.
 
-The cone shape of the plot suggests the variance in listing prices is associated with the market price of a car, which makes intuitive sense. It is common knowledge that factors affecting price such as depreciation and damage are all scaled to some base price of a new, accident-free vehicle(eg. an expensive vehicle would have expensive repairs, and the value would decay proportional to the original price). 
+The cone shape of the plot suggests the variance in listing prices is associated with the market price of a car. It is common knowledge that factors affecting price such as depreciation and damage are all scaled to some base price of a new, accident-free vehicle(eg. an expensive vehicle would have expensive repairs, and the value would decay proportional to the original price). 
 
 However, does this proportion change for cars of different approximate price ranges?
 
@@ -236,35 +238,37 @@ On the log scale, we see relatively constant variance. This suggests that the ra
 
 We have established a fact that price changes in listings seem proportional to a car's initial price, which is correlated with its estimated market price. Further factors must be considered if we want to explain remaining variance in the listing prices.
 
-### Market price by model year
+<!-- ### Market price by model year -->
 
-```{r}
-tmp <- merged
+<!-- ```{r} -->
+<!-- tmp <- merged -->
 
-p <- tmp %>% ggplot(aes(x=model_year, 
-                        y=list_price, 
-                        color=price_range)) +
-  geom_point(size=0.4, aes(text=paste(
-  model_year, brand, model, "(", body_type, ")",
-  "<br>Market price (CAD):", Market.Price.CAD,
-  "<br>List price(CAD):", list_price
-))) +
-  geom_smooth(method=lm, formula=y~poly(x, 2, raw=T), se=F, linewidth=0.2) +
-  labs(title="",
-       x="Model Year",
-       y="Market Price(CAD)",
-       color="Price range")
+<!-- p <- tmp %>% ggplot(aes(x=model_year,  -->
+<!--                         y=list_price,  -->
+<!--                         color=price_range)) + -->
+<!--   geom_point(size=0.4, aes(text=paste( -->
+<!--   model_year, brand, model, "(", body_type, ")", -->
+<!--   "<br>Market price (CAD):", Market.Price.CAD, -->
+<!--   "<br>List price(CAD):", list_price -->
+<!-- ))) + -->
+<!--   geom_smooth(method=lm, formula=y~poly(x, 2, raw=T), se=F, linewidth=0.2) + -->
+<!--   labs(title="", -->
+<!--        x="Model Year", -->
+<!--        y="Market Price(CAD)", -->
+<!--        color="Price range") -->
 
-ggplotly(p, tooltip="text")
-```
+<!-- ggplotly(p, tooltip="text") -->
+<!-- ``` -->
 
-(Remember, price range is separated by market price quantiles)
+<!-- (Remember, price range is separated by market price quantiles) -->
 
-The graph supports the idea that prices decrease at an exponential rate over time, with newer car models having significantly higher listing prices. We see that the variance in prices is higher in recent years compared to older models, and the spread of the points are wider for cars in higher price ranges. This further supports the idea that price variance depends on the original price range of the car, and that in general, all cars lose value proportional to their original price over time.
+<!-- The graph supports the idea that prices decrease at an exponential rate over time, with newer car models having significantly higher listing prices. We see that the variance in prices is higher in recent years compared to older models, and the spread of the points are wider for cars in higher price ranges. This further supports the idea that price variance depends on the original price range of the car, and that in general, all cars lose value proportional to their original price over time. -->
 
-## Market price by year and brand {.tabset}
+## Logged market price by year and brand {.tabset}
 
 The following plots allow us to visualize and compare the changes in price for different brands of cars over time, and inspect the data points individually to understand their respective trends better. I chose to plot the market price variable as it is not influenced by individual perceptions of value, as listing price may be. I also chose to plot market price on the log scales and fit linear lines to model the exponential nature of the price decay.
+
+Thus, for each brand, we fit a straight line $price = e^{\beta_0 + \beta_1 year}$, meaning the slope estimates roughly correspond to annual rate of change in price(the rate is estimated to be $e^{\beta_1}$.
 
 Overall, these plots suggest that there isn't a significant difference in depreciation between different brands of cars. However, since within each brand we have observations for different models, the results are heavily affected by outliers and a lack of data points, and further investigation is necessary to confirm these findings.
 
@@ -297,7 +301,9 @@ p <- tmp %>% ggplot(aes(x=model_year,
 ggplotly(p, tooltip="text")
 ```
 
-Compared to the other visualization, this visualization for the market prices of different smaller vehicles(eg. sedans, hatchbacks) has a lot of outliers, such as luxury vehicles and everyday vehicles from the same brand, that influence the fitted lines. However, we see that most lines have similar slopes, suggesting similar decay rates.
+Below are the fitted slope coefficients for each line. They can be interpreted using the model given in the description above. For example, the model suggests brands such as Porsche, Acura, Toyota and Honda have the lowest yearly rate of change, and that brands such as Cadillac, Audi, Dodge and BMW have the highest.
+
+This may be because brands such as Acura, Toyota and Honda are known to have low maintenance costs and encounter few mechanical problems in the car's lifespan, whereas brands such as Audi and BMW typically have high maintenance costs. However, the amount of noise and outliers in the data makes it difficult to draw definitive conclusions.
 
 ```{r}
 
@@ -364,7 +370,11 @@ ggplotly(p, tooltip="text")
 #   layout(yaxis = list(range = c(0, 100000)))
 ```
 
+Below are the fitted slope coefficients for each line. These do not give much insight, as most coefficients are similar and estimates are noisy.
+
 The plot for larger vehicles, such as trucks and vans, seems to have a lot less noise, as most lines are almost parallel. This may be because there is a lot more variation among smaller vehicles(eg. sports cars, luxury vehicles) compared to vans and trucks. The parallel lines in this plot suggest that price decay rates are similar among trucks, for different brands of cars.
+
+Compared to the previous plot, we see similar cars among the highest/lowest fitted slope coefficients(eg. Toyota, Acura among the cars with lowest slope, BMW and Audi among cars with highest slope), giving evidence to support our findings.
 
 ```{r}
 
@@ -399,16 +409,17 @@ p <- tmp %>% ggplot(aes(x=model_year,
   "<br>Market price (CAD):", Market.Price.CAD,
   "<br>List price(CAD):", list_price
 ))) +
-  geom_smooth(method=lm, formula=y~poly(x, 2, raw=T), se=F, linewidth=0.2) +
+  geom_smooth(method=lm, formula=y~poly(x, 1, raw=T), se=F, linewidth=0.2) +
   labs(title="",
        x="Model Year",
-       y="Market Price(CAD)",
-       color="Brand")
+       y="Logged Market Price(CAD)",
+       color="Brand") +
+  scale_y_log10(labels=scales::comma)
 
 ggplotly(p, tooltip="text")
 ```
 
-This plot does not really give any results, it just allows us to view the cars that were classified as "Other." We see that most vehicles may have been misclassified, while some vehicles were correctly classified, such as a Chevrolet Express, which is a van used mostly by organizations for moving large amounts of passengers/equipment.
+This plot does not really give any results, it just allows us to view the cars that were classified as "Other." We see that most vehicles may have been misclassified, while some vehicles were correctly classified, upon inspecting its make and model. Perhaps sellers did not declare the vehicle type on the site.
 
 ## Comparing other car factors {.tabset}
 
