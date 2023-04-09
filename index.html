@@ -374,7 +374,7 @@ div.tocify {
 <p>I removed columns that I’m not investigating, such as links and vehicle identification numbers, and converted the remaining columns to the correct data types. Cross-referencing with other sites, I believe MotorTrend market prices are given in CAD, so I did not perform any currency conversion.</p>
 <p>I then removed listings with a listing price of 0. Kijiji sellers will often list a price of 0 or ‘Please Contact’ to attract buyers, which does not reflect the actual asking price.</p>
 <p>Since market prices are scraped in 2023 and the dataset is from 2019, there is no reasonable way to impute the missing values in that column. Market price is an important variable in this investigation, so I decided to remove all rows with missing market prices.</p>
-<p>I also created a new <code>price range</code> variable that indicates if the market price of a car which had a market price below the 25th percentile, between the 25-75th percentile or above the 75th percentile, comparing to other recorded listings <strong>in the same year</strong>. This variable is intended to roughly indicate whether a vehicle is a “luxury vehicle” or not, and takes the values ‘low,’ ‘medium,’ and ‘high.’</p>
+<p>I also created a new <code>price range</code> variable that indicates if the car mentioned in a listing had a market price below the 25th percentile, between the 25-75th percentile or above the 75th percentile, comparing to other recorded listings in the same year. This variable is intended to roughly indicate whether a vehicle is a “luxury vehicle” or not, and takes the values ‘low,’ ‘medium,’ and ‘high.’</p>
 </div>
 <div id="methods-and-results" class="section level1">
 <h1>Methods and results</h1>
