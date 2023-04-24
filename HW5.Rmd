@@ -7,6 +7,8 @@ output:
         toc_float: TRUE
 ---
 
+**IMPORTANT NOTE: Most of the analysis done on this webpage can be found in the pdf report [here](https://github.com/dungwoong/JSC370Final/raw/main/FinalWriteup.pdf) **
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE,
                       warning=FALSE,
@@ -170,7 +172,7 @@ A problem with this dataset is that the listing data was scraped in 2019, and th
 
 This implies the market price for the cars has most likely decreased in 2019. However, online sources state that cars typically depreciate exponentially in price. Thus, we have reason to believe that most of the listings differ from their market prices by a constant factor, and can thus proceed with analysis.
 
-## Market Price visualizations {.tabset}
+## Figure 1: Market vs Listing Price {.tabset}
 
 Here, we can check our assumptions about market price, and also gain some insight about the approximate change in car prices between 2019 and 2023.
 
@@ -264,7 +266,7 @@ We have established a fact that price changes in listings seem proportional to a
 
 <!-- The graph supports the idea that prices decrease at an exponential rate over time, with newer car models having significantly higher listing prices. We see that the variance in prices is higher in recent years compared to older models, and the spread of the points are wider for cars in higher price ranges. This further supports the idea that price variance depends on the original price range of the car, and that in general, all cars lose value proportional to their original price over time. -->
 
-## Logged market price by year and brand {.tabset}
+## Figure 2: Logged market price by year and brand {.tabset}
 
 The following plots allow us to visualize and compare the changes in price for different brands of cars over time, and inspect the data points individually to understand their respective trends better. I chose to plot the market price variable as it is not influenced by individual perceptions of value, as listing price may be. I also chose to plot market price on the log scales and fit linear lines to model the exponential nature of the price decay.
 
@@ -421,7 +423,7 @@ ggplotly(p, tooltip="text")
 
 This plot does not really give any results, it just allows us to view the cars that were classified as "Other." We see that most vehicles may have been misclassified, while some vehicles were correctly classified, upon inspecting its make and model. Perhaps sellers did not declare the vehicle type on the site.
 
-## Comparing other car factors {.tabset}
+## Figure 3: Comparing other car factors {.tabset}
 
 When considering a car purchase, knowing approximately what is available within a certain price range is important. Analyzing the price distributions of cars with different body types and wheel configurations can help us understand what cars are available at different budget points, a useful consideration when a specific function is required(eg. a truck for transporting equipment, or an all wheel drive vehicle for snowy weather).
 
@@ -523,7 +525,7 @@ ggplotly(p, tooltip="text")
 
 In addition to body type, wheel configuration also seems to be associated with price. We see 4x4 vehicles have the highest median price.
 
-## Comparing market price decay with miscellaneous factors {.tabset}
+## Figure 4: Comparing market price decay with miscellaneous factors {.tabset}
 
 Our results suggest that cars that provide utility, such as trucks, may observe lower decay rates compared to other, more "generic" vehicles. In addition, luxury vehicles and sports cars, which are often rear wheel drive, may observe lower decay rates due to the social status associated with the vehicle.
 

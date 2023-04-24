@@ -7,6 +7,8 @@ output:
         toc_float: TRUE
 ---
 
+**IMPORTANT NOTE: Most of the analysis done on this webpage can be found in the pdf report [here](https://github.com/dungwoong/JSC370Final/raw/main/FinalWriteup.pdf) **
+
 # Problem Description
 
 Transportation is the life-blood of civilization. For many people, the two largest purchases in their lives will be a house and a car. However, not all cars are built equally and, from personal experience, many car salesmen will not eagerly disclose these inequalities. Thus, I will be investigating the used car market for my project, thinking from the perspective of a prospective buyer and from a used car dealership.
@@ -42,3 +44,13 @@ I performed some data analysis and created some interactive visualizations, avai
 The visualizations and numerical analysis mostly suggest that most brands of cars decay at a similar exponential rate every year. In addition, we find that prices differ between types of cars and wheel configuration, and that certain types of cars such as trucks and sports cars may experience less price decay than normal cars due to the features they provide the buyer.
 
 I also fit some models that attempt to predict the listing price of a car given other variables. This model is meant to find how much of the variation in listing prices can be explained using the data I collected and state-of-the-art prediction methods, such as random forests and gradient boosting. In reality, we would probably scrape present-day data and fit a new model if we wanted to make accurate predictions.
+
+# Visualizations/PDF report
+
+Visualizations are on the "Methods and Results" tab.
+
+To download the PDF report, click [here](https://github.com/dungwoong/JSC370Final/raw/main/FinalWriteup.pdf) ([alternate link](https://github.com/dungwoong/JSC370Final/blob/main/FinalWriteup.pdf))
+
+Code for the pdf report can be found [here](https://github.com/dungwoong/JSC370Final)
+
+Code for the visualization and the final project website can be found [here](https://github.com/dungwoong/JSC370website)
